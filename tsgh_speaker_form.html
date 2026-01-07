@@ -980,7 +980,7 @@
                     <div class="question">
                         <label class="question-label">Upload your CV (PDF, DOC, DOCX)</label>
                         <div class="upload-zone" id="cv-upload-zone" onclick="if(!this.classList.contains('has-file')){document.getElementById('cv-file').click()}">
-                            <input type="file" id="cv-file" name="cv_file" accept=".pdf,.doc,.docx" style="display:none;">
+                            <input type="file" id="cv-file" name="cv_file" accept=".pdf,.doc,.docx" style="display:none;" onchange="handleFileInput(this, 'cv')">
                             <div class="upload-content">
                                 <div class="upload-icon">📄</div>
                                 <p class="upload-text">Drag & drop your CV here</p>
@@ -998,7 +998,7 @@
                     <div class="question">
                         <label class="question-label">Upload your professional photo (JPG, PNG)</label>
                         <div class="upload-zone" id="photo-upload-zone" onclick="if(!this.classList.contains('has-file')){document.getElementById('photo-file').click()}">
-                            <input type="file" id="photo-file" name="photo_file" accept=".jpg,.jpeg,.png" style="display:none;">
+                            <input type="file" id="photo-file" name="photo_file" accept=".jpg,.jpeg,.png" style="display:none;" onchange="handleFileInput(this, 'photo')">
                             <div class="upload-content">
                                 <div class="upload-icon">📷</div>
                                 <p class="upload-text">Drag & drop your photo here</p>
@@ -1129,6 +1129,40 @@
             cv: null,
             photo: null
         };
+
+        // Direct file input handler
+        function handleFileInput(input, type) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const maxSize = type === 'cv' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+                
+                if (file.size > maxSize) {
+                    alert('File is too large. Maximum size is ' + (type === 'cv' ? '10MB' : '5MB'));
+                    input.value = '';
+                    return;
+                }
+                
+                uploadedFiles[type] = file;
+                
+                const zone = document.getElementById(type === 'cv' ? 'cv-upload-zone' : 'photo-upload-zone');
+                const content = zone.querySelector('.upload-content');
+                const preview = document.getElementById(type === 'cv' ? 'cv-preview' : 'photo-preview');
+                const filename = document.getElementById(type === 'cv' ? 'cv-filename' : 'photo-filename');
+                
+                content.style.display = 'none';
+                preview.style.display = 'flex';
+                filename.textContent = file.name;
+                zone.classList.add('has-file');
+                
+                if (type === 'photo') {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        document.getElementById('photo-thumbnail').src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        }
 
         // Setup drag and drop for upload zones
         function setupUploadZone(zoneId, fileInputId, previewId, filenameId, type) {
