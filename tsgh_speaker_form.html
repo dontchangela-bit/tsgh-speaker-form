@@ -1108,7 +1108,7 @@
                     Thank you for your time! We look forward to welcoming you to Taiwan 🇹🇼
                 </p>
                 <p class="footer-contact">
-                    Questions? Contact us at <a href="mailto:dontchangela@gmail.com" style="color: #0088aa;">dontchangela@gmail.com</a>
+                    Questions? Contact us at <a href="mailto:dontchangela@gmail.com">dontchangela@gmail.com</a>
                 </p>
             </div>
         </div>
@@ -1297,4 +1297,12 @@
                 window.scrollTo({ top: 0, behavior: 'smooth' });
 
             } catch (error) {
-                console.error('Error:', 
+                console.error('Error:', error);
+                loading.classList.remove('active');
+                submitBtn.disabled = false;
+                alert('There was an error submitting the form. Please try again or contact us directly.');
+            }
+        });
+    </script>
+</body>
+</html>
