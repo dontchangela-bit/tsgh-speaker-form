@@ -1115,8 +1115,12 @@
     </div>
 
     <script>
-        // ⚠️ IMPORTANT: Replace this URL with your Google Apps Script Web App URL
+        // Google Apps Script URL
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwmvv5vCyMNoA_xZS7R_xbMI5YE6M0hm0ifP6E4uyuMWM421CuLEjI-WIZfkIm_BBBHBw/exec';
+        
+        // Cloudinary 設定
+        const CLOUDINARY_CLOUD_NAME = 'dd3krmfzl';
+        const CLOUDINARY_UPLOAD_PRESET = 'tsgh_upload';
 
         const form = document.getElementById('speaker-form');
         const loading = document.getElementById('loading');
@@ -1129,6 +1133,32 @@
             cv: null,
             photo: null
         };
+
+        // Cloudinary URLs after upload
+        let uploadedUrls = {
+            cv: null,
+            photo: null
+        };
+
+        // Upload file to Cloudinary
+        async function uploadToCloudinary(file, type) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+            formData.append('folder', 'tsgh-speakers');
+            
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+            
+            const data = await response.json();
+            return data.secure_url;
+        }
 
         // Setup drag and drop for upload zones
         function setupUploadZone(zoneId, fileInputId, previewId, filenameId, type) {
@@ -1172,15 +1202,16 @@
 
         // Handle file selection
         function handleFile(file, type, zone, preview, filenameId) {
-            // Validate file size
-            const maxSize = type === 'cv' ? 10 * 1024 * 1024 : 5 * 1024 * 1024; // 10MB for CV, 5MB for photo
+            // Validate file size (10MB limit)
+            const maxSize = 10 * 1024 * 1024;
             if (file.size > maxSize) {
-                alert(`File is too large. Maximum size is ${type === 'cv' ? '10MB' : '5MB'}.`);
+                alert('File is too large. Maximum size is 10MB.');
                 return;
             }
 
             // Store file
             uploadedFiles[type] = file;
+            uploadedUrls[type] = null; // Reset URL
 
             // Update UI
             zone.classList.add('has-file');
@@ -1201,6 +1232,7 @@
         // Remove file
         function removeFile(type) {
             uploadedFiles[type] = null;
+            uploadedUrls[type] = null;
             
             const zoneId = type === 'cv' ? 'cv-upload-zone' : 'photo-upload-zone';
             const previewId = type === 'cv' ? 'cv-preview' : 'photo-preview';
@@ -1216,28 +1248,12 @@
             fileInput.value = '';
         }
 
-        // Convert file to base64
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-            });
-        }
-
         // Initialize upload zones
         setupUploadZone('cv-upload-zone', 'cv-file', 'cv-preview', 'cv-filename', 'cv');
         setupUploadZone('photo-upload-zone', 'photo-file', 'photo-preview', 'photo-filename', 'photo');
 
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
-
-            // Check if script URL is set
-            if (GOOGLE_SCRIPT_URL === 'YOUR_SCRIPT_URL_HERE') {
-                alert('⚠️ Setup Required!\n\nPlease configure the Google Apps Script URL first.\nSee the setup guide for instructions.');
-                return;
-            }
 
             // Show loading
             loading.classList.add('active');
@@ -1269,22 +1285,29 @@
             // Add timestamp
             data.timestamp = new Date().toISOString();
 
-            // Add files as base64
+            // Upload files to Cloudinary first
             try {
                 if (uploadedFiles.cv) {
-                    data.cv_file = await fileToBase64(uploadedFiles.cv);
+                    console.log('Uploading CV to Cloudinary...');
+                    uploadedUrls.cv = await uploadToCloudinary(uploadedFiles.cv, 'cv');
+                    data.cv_url = uploadedUrls.cv;
                     data.cv_filename = uploadedFiles.cv.name;
-                    data.cv_type = uploadedFiles.cv.type;
                 }
                 if (uploadedFiles.photo) {
-                    data.photo_file = await fileToBase64(uploadedFiles.photo);
+                    console.log('Uploading photo to Cloudinary...');
+                    uploadedUrls.photo = await uploadToCloudinary(uploadedFiles.photo, 'photo');
+                    data.photo_url = uploadedUrls.photo;
                     data.photo_filename = uploadedFiles.photo.name;
-                    data.photo_type = uploadedFiles.photo.type;
                 }
             } catch (error) {
-                console.error('Error processing files:', error);
+                console.error('Error uploading files:', error);
+                loading.classList.remove('active');
+                submitBtn.disabled = false;
+                alert('Error uploading files. Please try again.');
+                return;
             }
 
+            // Send form data to Google Apps Script
             try {
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
